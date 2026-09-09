@@ -1,0 +1,305 @@
+# Getting Started with Connecticut Open Data
+
+``` text
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+``` text
+library(ctOpenData)
+library(dplyr)
+library(ggplot2)
+```
+
+## Introduction
+
+Welcome to the `ctOpenData` package, an R package designed to provide
+convenient access to the Connecticut Open Data Portal.
+
+The package provides a streamlined interface for discovering and
+downloading datasets from Connecticut Open Data. It helps bridge the gap
+between raw `Socrata` API endpoints and tidy data analysis in R.
+
+The package provides three primary functions:
+
+- [`ct_list_datasets()`](https://nyc-open-data-lab.github.io/ctOpenData/reference/ct_list_datasets.md)
+  for browsing available datasets
+- [`ct_pull_dataset()`](https://nyc-open-data-lab.github.io/ctOpenData/reference/ct_pull_dataset.md)
+  for downloading datasets using a catalog key or `Socrata` UID
+- [`ct_any_dataset()`](https://nyc-open-data-lab.github.io/ctOpenData/reference/ct_any_dataset.md)
+  for downloading data directly from a `Socrata` JSON endpoint
+
+## Listing Available Datasets
+
+The first step in a typical workflow is to use
+[`ct_list_datasets()`](https://nyc-open-data-lab.github.io/ctOpenData/reference/ct_list_datasets.md)
+to retrieve the live Connecticut Open Data catalog.
+
+``` text
+catalog <- ct_list_datasets()
+
+catalog
+```
+
+The returned catalog includes information about the datasets available
+through the portal. Two especially important columns are:
+
+- `key`, a human-readable dataset identifier generated from the dataset
+  name
+- `uid`, the official `Socrata` dataset identifier
+
+You can search the catalog for datasets containing a keyword.
+
+``` text
+catalog |>
+  filter(grepl("spill", name, ignore.case = TRUE)) |>
+  select(key, uid, name)
+```
+
+Replace `KEYWORD` with a useful search term related to the example
+dataset selected for the package.
+
+## Pulling a Dataset
+
+The primary way to download data is with
+[`ct_pull_dataset()`](https://nyc-open-data-lab.github.io/ctOpenData/reference/ct_pull_dataset.md).
+
+A dataset can be requested using either its human-readable catalog key
+or its official `Socrata` UID.
+
+### Pulling by UID
+
+``` text
+example_data_uid <- ct_pull_dataset(
+  dataset = "ffju-s5c5",
+  limit = 5
+)
+
+example_data_uid
+```
+
+### Pulling by Key
+
+``` text
+example_data_key <- ct_pull_dataset(
+  dataset = "spill_incidents_from_july_1_2022_to_recent_for_download",
+  limit = 5
+)
+
+example_data_key
+```
+
+Both calls should return data from the same dataset.
+
+## Keys and UIDs
+
+Dataset keys are easier to read, while `Socrata` UIDs are more stable.
+
+For reproducible research and long-term workflows, using the official
+`Socrata` UID is generally recommended.
+
+## Filtering Data
+
+The `filters` argument can be used for simple exact-match filtering.
+
+``` text
+filtered_data <- ct_pull_dataset(
+  dataset = "ffju-s5c5",
+  limit = 25,
+  filters = list(
+    incident_type = "Petroleum Incident"
+  )
+)
+
+filtered_data
+```
+
+You can confirm that the filter worked by inspecting the unique values
+in the selected field.
+
+``` text
+filtered_data |>
+  distinct(incident_type)
+```
+
+Multiple values can also be supplied.
+
+``` text
+filtered_multiple <- ct_pull_dataset(
+  dataset = "ffju-s5c5",
+  limit = 50,
+  filters = list(
+    incident_type = c("Biomedical Incident", "Dielectric Fluid Incident")
+  )
+)
+
+filtered_multiple
+```
+
+Multiple fields can be combined within the same filter list.
+
+``` text
+filtered_combination <- ct_pull_dataset(
+  dataset = "ffju-s5c5",
+  limit = 50,
+  filters = list(
+    incident_type = "Petroleum Incident",
+    township = "New Haven"
+  )
+)
+
+filtered_combination
+```
+
+## Filtering by Date
+
+If the example dataset contains a date or datetime field, records can be
+filtered using `from`, `to`, and `date_field`.
+
+``` text
+date_filtered_data <- ct_pull_dataset(
+  dataset = "ffju-s5c5",
+  from = "2023-01-01",
+  to = "2024-01-01",
+  date_field = "reported_date",
+  limit = 100
+)
+
+date_filtered_data
+```
+
+The `from` date is inclusive, while the `to` date is exclusive.
+
+A single day can also be requested using the `date` argument.
+
+``` text
+single_day_data <- ct_pull_dataset(
+  dataset = "ffju-s5c5",
+  date = "2023-01-01",
+  date_field = "reported_date",
+  limit = 100
+)
+
+single_day_data
+```
+
+## Pulling Data from Any `Socrata` Endpoint
+
+The preferred workflow is to use
+[`ct_list_datasets()`](https://nyc-open-data-lab.github.io/ctOpenData/reference/ct_list_datasets.md)
+together with
+[`ct_pull_dataset()`](https://nyc-open-data-lab.github.io/ctOpenData/reference/ct_pull_dataset.md).
+
+However, when a dataset is not available in the package catalog,
+[`ct_any_dataset()`](https://nyc-open-data-lab.github.io/ctOpenData/reference/ct_any_dataset.md)
+can download data directly from a `Socrata` JSON endpoint.
+
+Connecticut Open Data endpoints typically follow this structure:
+
+``` text
+https://data.ct.gov/resource/<dataset_uid>.json
+```
+
+For example:
+
+``` text
+https://data.ct.gov/resource/ffju-s5c5.json
+```
+
+The endpoint can then be supplied directly to
+[`ct_any_dataset()`](https://nyc-open-data-lab.github.io/ctOpenData/reference/ct_any_dataset.md).
+
+``` text
+endpoint_data <- ct_any_dataset(
+  json_link = "https://data.ct.gov/resource/ffju-s5c5.json",
+  limit = 5
+)
+
+endpoint_data
+```
+
+## Which function should you use?
+
+Use
+[`ct_pull_dataset()`](https://nyc-open-data-lab.github.io/ctOpenData/reference/ct_pull_dataset.md)
+when the dataset is available through
+[`ct_list_datasets()`](https://nyc-open-data-lab.github.io/ctOpenData/reference/ct_list_datasets.md).
+
+Use
+[`ct_any_dataset()`](https://nyc-open-data-lab.github.io/ctOpenData/reference/ct_any_dataset.md)
+when you already have a valid `Socrata` JSON endpoint or when the
+dataset is not included in the package catalog.
+
+## Example Analysis
+
+Once the data have been downloaded, they can be analyzed using standard
+R tools.
+
+The following example counts the number of records in a categorical
+field.
+
+``` text
+category_summary <- ct_pull_dataset(
+  dataset = "ffju-s5c5",
+  limit = 500
+) |>
+  filter(!is.na(incident_source)) |>
+  count(incident_source, sort = TRUE)
+
+category_summary
+```
+
+The results can then be visualized.
+
+``` text
+category_summary |>
+  slice_head(n = 10) |>
+  ggplot(
+    aes(
+      x = n,
+      y = reorder(incident_source, n)
+    )
+  ) +
+  geom_col() +
+  theme_minimal() +
+  labs(
+    title = "Most Frequent Categories",
+    x = "Number of Records",
+    y = "Category"
+  )
+```
+
+This example demonstrates the complete workflow from discovering a
+dataset to downloading, filtering, summarizing, and visualizing it.
+
+## Summary
+
+The `ctOpenData` package provides a consistent interface for working
+with data from the Connecticut Open Data Portal.
+
+In this vignette, you learned how to:
+
+- browse available datasets using
+  [`ct_list_datasets()`](https://nyc-open-data-lab.github.io/ctOpenData/reference/ct_list_datasets.md)
+- download datasets by key or UID using
+  [`ct_pull_dataset()`](https://nyc-open-data-lab.github.io/ctOpenData/reference/ct_pull_dataset.md)
+- filter data using fields, values, and dates
+- access a `Socrata` JSON endpoint using
+  [`ct_any_dataset()`](https://nyc-open-data-lab.github.io/ctOpenData/reference/ct_any_dataset.md)
+- perform a simple analysis and visualization
+
+These functions allow users to focus on analysis rather than manually
+constructing API requests.
+
+## How to Cite
+
+If you use this package for research or educational purposes, cite it
+using the package citation returned by:
+
+``` text
+citation("ctOpenData")
+```
